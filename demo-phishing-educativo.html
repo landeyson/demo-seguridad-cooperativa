@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verificando acceso...</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    font-family: 'Courier New', monospace;
+    color: #00ff41;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* FASE 1: pantalla de carga falsa */
+  #fase-carga {
+    position: fixed; inset: 0;
+    background: #0a0a0a;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 100;
+    transition: opacity 0.5s;
+  }
+
+  .logo-banco {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #fff;
+    background: #003087;
+    padding: 12px 32px;
+    border-radius: 6px;
+    margin-bottom: 32px;
+    font-family: Arial, sans-serif;
+    letter-spacing: 2px;
+  }
+
+  .barra-progreso-wrap {
+    width: 320px;
+    height: 6px;
+    background: #1a1a1a;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .barra-progreso {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #003087, #0070f3);
+    border-radius: 3px;
+    transition: width 0.1s linear;
+  }
+  .texto-carga {
+    color: #888;
+    font-size: 0.85rem;
+    font-family: Arial, sans-serif;
+  }
+
+  /* FASE 2: terminal de "hackeo" */
+  #fase-terminal {
+    position: fixed; inset: 0;
+    background: #0a0a0a;
+    padding: 40px;
+    display: none;
+    z-index: 99;
+    overflow-y: auto;
+  }
+
+  .terminal-header {
+    color: #ff3333;
+    font-size: 0.8rem;
+    margin-bottom: 20px;
+    opacity: 0.7;
+  }
+
+  #terminal-output {
+    font-size: 0.9rem;
+    line-height: 1.8;
+    white-space: pre;
+  }
+
+  .linea-ok    { color: #00ff41; }
+  .linea-warn  { color: #ffcc00; }
+  .linea-red   { color: #ff4444; }
+  .linea-dim   { color: #555; }
+  .linea-white { color: #ffffff; }
+  .linea-cyan  { color: #00ccff; }
+
+  .cursor {
+    display: inline-block;
+    width: 10px; height: 1.1em;
+    background: #00ff41;
+    animation: blink 0.7s step-end infinite;
+    vertical-align: text-bottom;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* FASE 3: pantalla de alerta final */
+  #fase-alerta {
+    display: none;
+    min-height: 100vh;
+    background: #0a0a0a;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 40px 20px;
+    text-align: center;
+  }
+
+  .alerta-box {
+    background: #111;
+    border: 2px solid #ff3333;
+    border-radius: 12px;
+    padding: 48px 40px;
+    max-width: 700px;
+    width: 100%;
+    box-shadow: 0 0 60px rgba(255,51,51,0.2);
+    animation: pulso 2s ease-in-out infinite;
+  }
+  @keyframes pulso {
+    0%, 100% { box-shadow: 0 0 40px rgba(255,51,51,0.15); }
+    50%       { box-shadow: 0 0 80px rgba(255,51,51,0.35); }
+  }
+
+  .icono-alerta {
+    font-size: 5rem;
+    margin-bottom: 16px;
+    display: block;
+    animation: sacudir 0.4s ease 0.2s 3;
+  }
+  @keyframes sacudir {
+    0%,100% { transform: translateX(0); }
+    25%      { transform: translateX(-8px); }
+    75%      { transform: translateX(8px); }
+  }
+
+  .titulo-alerta {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #ff3333;
+    font-family: Arial Black, Arial, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+  }
+
+  .subtitulo-alerta {
+    font-size: 1rem;
+    color: #ffcc00;
+    font-family: Arial, sans-serif;
+    margin-bottom: 32px;
+  }
+
+  .datos-capturados {
+    background: #0d0d0d;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 24px;
+    text-align: left;
+    margin-bottom: 28px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+  }
+
+  .datos-titulo {
+    color: #ff3333;
+    font-weight: bold;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    font-family: Arial, sans-serif;
+  }
+
+  .dato-fila {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #1a1a1a;
+    gap: 16px;
+  }
+  .dato-fila:last-child { border-bottom: none; }
+
+  .dato-label {
+    color: #666;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+  .dato-valor {
+    color: #00ff41;
+    font-size: 0.85rem;
+    text-align: right;
+    word-break: break-all;
+  }
+  .dato-valor.inventado { color: #ffcc00; }
+
+  .mensaje-educativo {
+    background: #0a1a0a;
+    border: 1px solid #00aa33;
+    border-radius: 8px;
+    padding: 20px 24px;
+    text-align: left;
+    margin-bottom: 24px;
+    font-family: Arial, sans-serif;
+  }
+
+  .msg-titulo {
+    color: #00ff41;
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+  }
+
+  .msg-cuerpo {
+    color: #aaa;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .msg-cuerpo strong { color: #fff; }
+
+  .reglas {
+    list-style: none;
+    text-align: left;
+    margin-top: 10px;
+  }
+  .reglas li {
+    color: #aaa;
+    font-size: 0.85rem;
+    padding: 4px 0;
+    padding-left: 20px;
+    position: relative;
+    font-family: Arial, sans-serif;
+  }
+  .reglas li::before {
+    content: "›";
+    position: absolute;
+    left: 0;
+    color: #ffcc00;
+    font-weight: bold;
+  }
+
+  .sello-educativo {
+    display: inline-block;
+    background: #003087;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    font-size: 0.8rem;
+    padding: 10px 24px;
+    border-radius: 20px;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+
+  /* escanlines decorativos */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 200;
+  }
+</style>
+</head>
+<body>
+
+<!-- FASE 1: Pantalla falsa de banco -->
+<div id="fase-carga">
+  <div class="logo-banco">🏦 BANCO SEGURO NIC</div>
+  <div class="barra-progreso-wrap">
+    <div class="barra-progreso" id="barra"></div>
+  </div>
+  <div class="texto-carga" id="texto-carga">Verificando sesión...</div>
+</div>
+
+<!-- FASE 2: Terminal de "escaneo" -->
+<div id="fase-terminal">
+  <div class="terminal-header">root@sistema:~$ — CONEXIÓN ESTABLECIDA</div>
+  <div id="terminal-output"></div>
+</div>
+
+<!-- FASE 3: Alerta educativa final -->
+<div id="fase-alerta" style="display:none; min-height:100vh; display:none; align-items:center; justify-content:center; flex-direction:column; padding:40px 20px; text-align:center;">
+  <div class="alerta-box">
+    <span class="icono-alerta">⚠️</span>
+    <div class="titulo-alerta">¡Acceso Obtenido!</div>
+    <div class="subtitulo-alerta">En un ataque real, esto ya habría ocurrido en segundos</div>
+
+    <div class="datos-capturados">
+      <div class="datos-titulo">// Datos que un atacante real podría obtener //</div>
+
+      <div class="dato-fila">
+        <span class="dato-label">Dispositivo</span>
+        <span class="dato-valor" id="val-dispositivo">—</span>
+      </div>
+      <div class="dato-fila">
+        <span class="dato-label">Navegador</span>
+        <span class="dato-valor" id="val-navegador">—</span>
+      </div>
+      <div class="dato-fila">
+        <span class="dato-label">Idioma del sistema</span>
+        <span class="dato-valor" id="val-idioma">—</span>
+      </div>
+      <div class="dato-fila">
+        <span class="dato-label">Hora local</span>
+        <span class="dato-valor" id="val-hora">—</span>
+      </div>
+      <div class="dato-fila">
+        <span class="dato-label">Zona horaria</span>
+        <span class="dato-valor" id="val-zona">—</span>
+      </div>
+      <div class="dato-fila">
+        <span class="dato-label">Resolución de pantalla</span>
+        <span class="dato-valor" id="val-resolucion">—</span>
+      </div>
+      <div class="dato-fila">
+        <span class="dato-label">Dirección IP pública *</span>
+        <span class="dato-valor inventado" id="val-ip">192.168.X.XXX ⚠ simulada</span>
+      </div>
+      <div class="dato-fila">
+        <span class="dato-label">Credenciales bancarias *</span>
+        <span class="dato-valor inventado">usuario/contraseña ⚠ simuladas</span>
+      </div>
+    </div>
+
+    <div class="mensaje-educativo">
+      <div class="msg-titulo">🛡️ ¿Qué acaba de pasar?</div>
+      <div class="msg-cuerpo">
+        Hiciste clic en un enlace sin verificar su origen. Un atacante real habría podido:<br><br>
+        <ul class="reglas">
+          <li>Identificar tu dispositivo y ubicación aproximada</li>
+          <li>Mostrarte una página falsa idéntica a tu banco (BAC, Banpro, La Fise)</li>
+          <li>Capturar tu usuario y contraseña al ingresarlos</li>
+          <li>Instalar software malicioso en segundo plano</li>
+          <li>Redirigir transferencias sin que te des cuenta</li>
+        </ul>
+        <br>
+        <strong>* Los datos marcados con ⚠ son completamente inventados.</strong> Esta página NO capturó ni almacenó ninguna información real. Es solo una demostración educativa.
+      </div>
+    </div>
+
+    <div class="mensaje-educativo" style="border-color:#ffcc00; background:#1a1500;">
+      <div class="msg-titulo" style="color:#ffcc00;">⚡ Antes de hacer clic en cualquier enlace:</div>
+      <ul class="reglas">
+        <li>Verifica el remitente completo del correo o mensaje</li>
+        <li>Pasa el cursor sobre el link sin hacer clic para ver la URL real</li>
+        <li>Nunca ingreses credenciales desde un enlace recibido por correo</li>
+        <li>Ante la duda, escribe la dirección del banco directamente en el navegador</li>
+        <li>Reporta el mensaje sospechoso a tu área de sistemas</li>
+      </ul>
+    </div>
+
+    <div class="sello-educativo">
+      🎓 EJERCICIO EDUCATIVO — Capacitación en Seguridad Bancaria
+    </div>
+  </div>
+</div>
+
+<script>
+// ── FASE 1: barra de carga falsa ──
+const textosCarga = [
+  "Verificando sesión...",
+  "Conectando con servidor seguro...",
+  "Validando certificados...",
+  "Cargando datos de cuenta...",
+  "Autenticando usuario..."
+];
+let progreso = 0;
+let textoIdx = 0;
+const barra = document.getElementById('barra');
+const textoCarga = document.getElementById('texto-carga');
+
+const intervalo1 = setInterval(() => {
+  progreso += Math.random() * 4 + 1;
+  if (progreso > 100) progreso = 100;
+  barra.style.width = progreso + '%';
+
+  if (progreso > textoIdx * 20 && textoIdx < textosCarga.length) {
+    textoCarga.textContent = textosCarga[textoIdx];
+    textoIdx++;
+  }
+
+  if (progreso >= 100) {
+    clearInterval(intervalo1);
+    setTimeout(iniciarTerminal, 400);
+  }
+}, 60);
+
+// ── FASE 2: terminal ──
+function iniciarTerminal() {
+  document.getElementById('fase-carga').style.opacity = '0';
+  setTimeout(() => {
+    document.getElementById('fase-carga').style.display = 'none';
+    document.getElementById('fase-terminal').style.display = 'block';
+  }, 500);
+
+  const ua = navigator.userAgent;
+  const hora = new Date().toLocaleTimeString('es-NI');
+  const fecha = new Date().toLocaleDateString('es-NI');
+  const zona = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  const lineas = [
+    { texto: `[${fecha} ${hora}] Conexión recibida`, clase: 'linea-dim' },
+    { texto: `[>] Iniciando reconocimiento del objetivo...`, clase: 'linea-warn' },
+    { texto: ``, clase: 'linea-dim' },
+    { texto: `[+] Fingerprint del navegador: OK`, clase: 'linea-ok' },
+    { texto: `[+] User-Agent capturado: ${ua.substring(0,60)}...`, clase: 'linea-ok' },
+    { texto: `[+] Idioma del sistema: ${navigator.language}`, clase: 'linea-ok' },
+    { texto: `[+] Resolución: ${screen.width}x${screen.height}`, clase: 'linea-ok' },
+    { texto: `[+] Zona horaria: ${zona}`, clase: 'linea-ok' },
+    { texto: `[+] Hora local: ${hora}`, clase: 'linea-ok' },
+    { texto: ``, clase: 'linea-dim' },
+    { texto: `[>] Simulando extracción de cookies de sesión...`, clase: 'linea-warn' },
+    { texto: `[+] Cookies de sesión: ACCESIBLES (simulado)`, clase: 'linea-ok' },
+    { texto: `[+] Token de autenticación: CAPTURADO (simulado)`, clase: 'linea-ok' },
+    { texto: ``, clase: 'linea-dim' },
+    { texto: `[>] Preparando página de captura de credenciales...`, clase: 'linea-warn' },
+    { texto: `[+] Clon de página bancaria: LISTO (simulado)`, clase: 'linea-ok' },
+    { texto: `[+] Formulario falso: ACTIVO (simulado)`, clase: 'linea-ok' },
+    { texto: ``, clase: 'linea-dim' },
+    { texto: `[!!!] CREDENCIALES BANCARIAS: CAPTURADAS (simulado)`, clase: 'linea-red' },
+    { texto: `[!!!] TRANSFERENCIA REDIRIGIDA: L. 95,000 (simulado)`, clase: 'linea-red' },
+    { texto: ``, clase: 'linea-dim' },
+    { texto: `── ESTO ES UNA DEMOSTRACIÓN EDUCATIVA ──`, clase: 'linea-white' },
+    { texto: `── Ningún dato real fue capturado ni transmitido ──`, clase: 'linea-cyan' },
+    { texto: ``, clase: 'linea-dim' },
+    { texto: `[>] Mostrando resultado educativo...`, clase: 'linea-warn' },
+  ];
+
+  let i = 0;
+  const output = document.getElementById('terminal-output');
+
+  function escribirLinea() {
+    if (i >= lineas.length) {
+      setTimeout(mostrarAlerta, 800);
+      return;
+    }
+    const { texto, clase } = lineas[i];
+    const span = document.createElement('span');
+    span.className = clase;
+    span.textContent = texto + '\n';
+    output.appendChild(span);
+    output.scrollTop = output.scrollHeight;
+    i++;
+    const delay = texto === '' ? 80 : texto.startsWith('[!!!]') ? 600 : Math.random() * 80 + 40;
+    setTimeout(escribirLinea, delay);
+  }
+
+  setTimeout(escribirLinea, 300);
+}
+
+// ── FASE 3: alerta educativa ──
+function mostrarAlerta() {
+  document.getElementById('fase-terminal').style.display = 'none';
+  const alerta = document.getElementById('fase-alerta');
+  alerta.style.display = 'flex';
+
+  // Llenar datos reales NO sensibles
+  const ua = navigator.userAgent;
+  const isMobile = /Mobi|Android/i.test(ua);
+  document.getElementById('val-dispositivo').textContent =
+    isMobile ? '📱 Dispositivo móvil' : '💻 Computadora de escritorio/laptop';
+
+  let navegador = 'Desconocido';
+  if (ua.includes('Chrome') && !ua.includes('Edg')) navegador = 'Google Chrome';
+  else if (ua.includes('Firefox')) navegador = 'Mozilla Firefox';
+  else if (ua.includes('Edg')) navegador = 'Microsoft Edge';
+  else if (ua.includes('Safari')) navegador = 'Apple Safari';
+  document.getElementById('val-navegador').textContent = navegador;
+
+  document.getElementById('val-idioma').textContent = navigator.language || 'es-NI';
+  document.getElementById('val-hora').textContent = new Date().toLocaleString('es-NI');
+  document.getElementById('val-zona').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  document.getElementById('val-resolucion').textContent = screen.width + ' × ' + screen.height + ' px';
+}
+</script>
+</body>
+</html>
